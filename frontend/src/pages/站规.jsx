@@ -22,12 +22,12 @@ export default function 站规(){
       <div className="段题">空桩 · {桩.length}</div>
       {!桩.length ? <div className="空态">暂无空桩</div> : (
         <table>
-          <thead><tr><th>空桩</th><th>说明</th><th>落盘</th></tr></thead>
+          <thead><tr><th>空桩</th><th>说明</th><th>状态</th></tr></thead>
           <tbody>{桩.map(r=>(
             <tr key={r.空桩}>
               <td>{r.空桩}</td>
-              <td>{r.说明}</td>
-              <td><span className={`徽章 ${r.已落盘?"通":"淡"}`}>{r.已落盘?"已落":"待落"}</span></td>
+              <td>{r.说明}{r.实现口径 ? <span className="讯" style={{margin:0,display:"block"}}>{r.实现口径}</span> : null}</td>
+              <td><span className={`徽章 ${r.已实现?"通":"淡"}`}>{r.状态||(r.已落盘?"已落":"待落")}</span></td>
             </tr>
           ))}</tbody>
         </table>

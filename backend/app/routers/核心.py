@@ -3,7 +3,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
 from app.db import 夹具目录, 连接
-from app.services import 装载, 贯验, 目录
+from app.services import 装载, 贯验, 目录, 孤儿, 夹具
 
 路由 = APIRouter(prefix="/api")
 
@@ -26,9 +26,9 @@ def 取总览():
     return 目录.总览()
 
 
-@路由.get("/枢纽/{类}")
-def 列枢纽(类: str):
-    表 = {"号卡": "枢纽_号卡", "套餐": "枢纽_套餐", "客户": "枢纽_客户"}.get(类)
+@路由.get("/枢纽/{lei}")
+def 列枢纽(lei: str):
+    表 = {"号卡": "枢纽_号卡", "套餐": "枢纽_套餐", "客户": "枢纽_客户"}.get(lei)
     if not 表:
         raise HTTPException(404, "未知枢纽类")
     conn = 连接()
@@ -38,14 +38,14 @@ def 列枢纽(类: str):
         conn.close()
 
 
-@路由.get("/链接/{类}")
-def 列链接(类: str):
-    if 类 == "号卡套餐":
+@路由.get("/链接/{lei}")
+def 列链接(lei: str):
+    if lei == "号卡套餐":
         sql = """SELECT l.*, a.业务键 AS 号卡业务键, b.业务键 AS 套餐业务键
                  FROM 链接_号卡套餐 l
                  JOIN 枢纽_号卡 a ON a.哈希键=l.号卡哈希
                  JOIN 枢纽_套餐 b ON b.哈希键=l.套餐哈希"""
-    elif 类 == "号卡客户":
+    elif lei == "号卡客户":
         sql = """SELECT l.*, a.业务键 AS 号卡业务键, b.业务键 AS 客户业务键
                  FROM 链接_号卡客户 l
                  JOIN 枢纽_号卡 a ON a.哈希键=l.号卡哈希
@@ -59,23 +59,48 @@ def 列链接(类: str):
         conn.close()
 
 
-@路由.get("/卫星/{类}")
-def 列卫星(类: str, 仅当前: int = 1):
+@路由.get("/卫星/巡检")
+def 卫星巡检(类: str = "", 卫星类: str = ""):
+    """卫星巡检：当前 + 历史逐行给出父可解 valid 与孤儿标记。"""
+    类 = 类 or 卫星类
+    结果 = 孤儿.列孤儿(含全部=True, 卫星类=类)
+    结果["行数"] = len(结果["明细"])
+    return 结果
+
+
+@路由.get("/卫星/孤儿")
+def 卫星孤儿(类: str = "", 卫星类: str = ""):
+    """孤儿明细只读别名：范围口径、卫星编号、是否当前、父哈希、valid。"""
+    return 孤儿.列孤儿(含全部=False, 卫星类=类 or 卫星类)
+
+
+@路由.get("/卫星/{lei}")
+def 列卫星(lei: str, 仅当前: int = 1):
     表 = {
         "号卡": "卫星_号卡属性",
         "套餐": "卫星_套餐属性",
         "客户": "卫星_客户属性",
         "订购": "卫星_订购属性",
-    }.get(类)
+    }.get(lei)
     if not 表:
         raise HTTPException(404, "未知卫星类")
+    from app.modules.贯验孤儿卫星 import 父可解, 取映射
+
+    映射 = 取映射(卫星类=lei)
     conn = 连接()
     try:
         if 仅当前:
             rows = conn.execute(f"SELECT * FROM {表} WHERE 是否当前=1 ORDER BY 编号 DESC")
         else:
             rows = conn.execute(f"SELECT * FROM {表} ORDER BY 编号 DESC LIMIT 200")
-        return [dict(r) for r in rows]
+        行 = []
+        for r in rows:
+            r = dict(r)
+            可解 = 父可解(conn, 映射["父表"], r[映射["父列"]])
+            r["valid"] = 1 if 可解 else 0
+            r["是否孤儿"] = 0 if 可解 else 1
+            行.append(r)
+        return 行
     finally:
         conn.close()
 
@@ -108,7 +133,38 @@ def 装夹具(名: str = "号卡套餐样例"):
     路径 = 夹具目录 / f"{名}.json"
     if not 路径.exists():
         raise HTTPException(404, f"夹具不存在:{名}")
-    return 装载.装一批(json.loads(路径.read_text(encoding="utf-8")))
+    体 = json.loads(路径.read_text(encoding="utf-8"))
+    if "步骤" in 体:
+        return 夹具.跑场景(名, 体)
+    return 装载.装一批(体)
+
+
+@路由.post("/夹具/场景")
+def 跑夹具场景(名: str):
+    try:
+        return 夹具.跑场景(名)
+    except FileNotFoundError as e:
+        raise HTTPException(404, str(e))
+
+
+class 开版请求(BaseModel):
+    类: str
+    父哈希: str = ""
+    父业务键: str = ""
+    属性: dict = Field(default_factory=dict)
+    装载日: str = ""
+
+
+@路由.post("/卫星/开版")
+@路由.post("/开版")
+def 开卫星版(体: 开版请求):
+    """显式开版：父不可解或有孤儿时失败闭，零增量。"""
+    父哈希 = 体.父哈希.strip()
+    if not 父哈希 and 体.父业务键:
+        from app.seed import 哈希键
+
+        父哈希 = 哈希键(体.类, 体.父业务键.strip())
+    return 装载.开卫星版(体.类, 父哈希, 体.属性, 体.装载日)
 
 
 @路由.post("/贯验")
@@ -123,6 +179,29 @@ def 列贯验():
         return [dict(r) for r in conn.execute("SELECT * FROM 金库贯验 ORDER BY 编号 DESC LIMIT 20")]
     finally:
         conn.close()
+
+
+@路由.get("/贯验/孤儿")
+def 列末次贯验孤儿(贯验编号: int | None = None):
+    return 孤儿.列贯验孤儿(贯验编号)
+
+
+@路由.get("/孤儿")
+def 列孤儿(含全部: int = 0, 全部: int = 0, 类: str = "", 卫星类: str = ""):
+    """孤儿明细只读接口：范围口径、卫星编号、是否当前、父哈希、valid。"""
+    return 孤儿.列孤儿(含全部=bool(含全部 or 全部), 卫星类=类 or 卫星类)
+
+
+@路由.get("/孤儿/明细")
+def 列孤儿明细(类: str = "", 卫星类: str = ""):
+    """扁平明细别名：直接返回孤儿行数组。"""
+    return 孤儿.列孤儿明细(卫星类=类 or 卫星类)
+
+
+@路由.get("/孤儿卫星")
+def 列孤儿卫星(含全部: int = 0, 全部: int = 0, 类: str = "", 卫星类: str = ""):
+    """孤儿卫星明细别名。"""
+    return 孤儿.列孤儿(含全部=bool(含全部 or 全部), 卫星类=类 or 卫星类)
 
 
 @路由.get("/空桩")

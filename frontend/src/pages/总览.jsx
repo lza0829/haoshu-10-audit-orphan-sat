@@ -6,7 +6,7 @@ export default function 总览(){
   const 刷=()=>取("/总览").then(设);
   useEffect(()=>{刷();},[]);
   if(!数) return <p className="讯">加载中…</p>;
-  const 项=["号卡枢纽","套餐枢纽","客户枢纽","订购链接","实名链接","卫星当前","装载批次","隔离"];
+  const 项=["号卡枢纽","套餐枢纽","客户枢纽","订购链接","实名链接","卫星当前","卫星孤儿","装载批次","隔离"];
   const 末=数.末次贯验;
   return (<div>
     <h1 className="题">总览</h1>
@@ -19,6 +19,8 @@ export default function 总览(){
         <span className={`徽章 ${末.是否通过?"通":"败"}`}>{末.是否通过?"通过":"未过"}</span>
         <span className="讯" style={{margin:0}}>
           枢纽 {末.枢纽数} · 链接 {末.链接数} · 卫星当前 {末.卫星当前数}
+          {末.范围口径 ? ` · 口径 ${末.范围口径}` : ""}
+          {typeof 末.孤儿数==="number" ? ` · 孤儿 ${末.孤儿数}（当前 ${末.当前孤儿数??0} / 历史 ${末.历史孤儿数??0}）` : ""}
         </span>
         <span className="讯" style={{margin:0,flex:"1 1 100%"}}>{末.说明}</span>
       </div>

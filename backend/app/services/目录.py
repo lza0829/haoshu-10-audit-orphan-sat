@@ -1,4 +1,5 @@
 from app.db import 连接
+from app.modules.贯验孤儿卫星 import 扫描孤儿
 
 
 def 总览() -> dict:
@@ -8,6 +9,7 @@ def 总览() -> dict:
             return conn.execute(sql).fetchone()["c"]
 
         末 = conn.execute("SELECT * FROM 金库贯验 ORDER BY 编号 DESC LIMIT 1").fetchone()
+        孤儿 = 扫描孤儿(conn)
         return {
             "号卡枢纽": c("SELECT COUNT(*) AS c FROM 枢纽_号卡"),
             "套餐枢纽": c("SELECT COUNT(*) AS c FROM 枢纽_套餐"),
@@ -18,6 +20,7 @@ def 总览() -> dict:
                 c(f"SELECT COUNT(*) AS c FROM {t} WHERE 是否当前=1")
                 for t in ("卫星_号卡属性", "卫星_套餐属性", "卫星_客户属性", "卫星_订购属性")
             ),
+            "卫星孤儿": len(孤儿),
             "装载批次": c("SELECT COUNT(*) AS c FROM 装载批次"),
             "隔离": c("SELECT COUNT(*) AS c FROM 隔离匣"),
             "末次贯验": dict(末) if 末 else None,

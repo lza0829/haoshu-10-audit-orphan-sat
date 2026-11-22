@@ -98,6 +98,20 @@ th { color: var(--淡); font-weight: 500 }
 .徽章.败 { background: var(--败底); color: var(--败) }
 .徽章.淡 { background: var(--块亮); color: var(--淡) }
 
+.闸条 {
+  border: 1px solid var(--线); border-radius: 8px; padding: 0.75rem 0.9rem;
+  margin-bottom: 0.9rem; background: var(--块);
+}
+.闸条.通 { border-color: rgba(61,155,143,0.45); background: var(--通底) }
+.闸条.败 { border-color: rgba(196,92,92,0.45); background: var(--败底) }
+.闸标 { font-weight: 700; margin-bottom: 0.25rem }
+.闸条.通 .闸标 { color: var(--通) }
+.闸条.败 .闸标 { color: var(--败) }
+.闸说 { color: var(--淡); font-size: 0.84rem; line-height: 1.5 }
+.死父 { margin: 0.5rem 0 0; padding-left: 1.1rem; font-size: 0.84rem; line-height: 1.7 }
+.死父 .淡 { color: var(--淡) }
+.哈希 { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.8rem }
+
 .装载报 {
   background: var(--块); border: 1px solid var(--线); border-radius: 10px;
   padding: 1rem 1.05rem; margin: 0.4rem 0 1rem;
